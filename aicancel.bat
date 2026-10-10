@@ -1,10 +1,15 @@
 @echo off
-REM aicancel launcher - يشغل كمسؤول تلقائيا + يتجاوز ExecutionPolicy
-REM Usage: aicancel.bat [-all] [-scan] [-revert]
+REM =====================================================================
+REM  aicancel v1.1.0 - Cancel Windows AI
+REM  Copyright (c) 2026 salim-slimani. Licensed under the MIT License.
+REM  Project: https://github.com/salim-studio/aicancel
+REM  Launcher: requests admin rights and runs aicancel.ps1.
+REM  Usage: aicancel.bat [-all] [-scan] [-revert]
+REM =====================================================================
 
 NET SESSION >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 (
-  echo طلب صلاحيات المسؤول...
+  echo Requesting administrator rights...
   powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process '%~f0' -ArgumentList '%*' -Verb RunAs"
   exit /b
 )

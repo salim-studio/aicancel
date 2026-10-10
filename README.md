@@ -1,81 +1,111 @@
-# aicancel — إلغاء ذكاء ويندوز الاصطناعي 🇸🇦
+<p align="center">
+  <img src="assets/logo.svg" width="128" alt="aicancel logo — AI crossed out" />
+</p>
 
-بديل عملي وسريع ومتكامل لمشروع `RemoveWindowsAI`، بنفس التغطية وأكثر، مع تحسينات:
+<h1 align="center">aicancel</h1>
 
-| الميزة | الأصلي | aicancel |
-|---|---|---|
-| دعم PowerShell 7 | ❌ يمنع ويخرج بخطأ | ✅ مدعوم 5.1 + 7 |
-| السرعة | بطيء (sleeps + مسوحات متكررة) | ✅ دفعة ريجستري واحدة + مسح CBS واحد + Trusted مرة واحدة |
-| فحص قبل الحذف | ❌ | ✅ `-ScanOnly` |
-| نسخ احتياطي + استرجاع | جزئي | ✅ `-Backup` + `-Revert` + نقطة استعادة |
-| حماية بعد التحديث | مهمة فحص | ✅ مهمة Watchdog (عند الدخول + أسبوعيا) |
-| قائمة عربية | ❌ | ✅ قائمة تفاعلية عربية |
-| سجل | اختياري معقد | ✅ `-EnableLog` بسيط |
+<p align="center"><b>Cancel Windows AI — clean. private. yours.</b></p>
 
-## ما الذي يزيله؟
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.1.0-blue" alt="version" />
+  <img src="https://img.shields.io/badge/platform-Windows_10_|_11-0078D4" alt="platform" />
+  <img src="https://img.shields.io/badge/powershell-5.1_|_7+-5391FE" alt="powershell" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="license" />
+</p>
 
-1. **DisableReg**: كل سياسات `WindowsAI` + `WindowsCopilot` + Consent (`generativeAI`/`systemAIModels`) + منع `BackgroundAccess` + `VoiceActivation` + `Telemetry` + زر Copilot في شريط المهام + `ClickToDo`
-2. **EdgeAI**: 17 سياسة Edge + أعلام `edge-copilot-mode`, `edge-ntp-composer`, `edge-compose` في `Local State`
-3. **OfficeAI**: تعطيل Copilot في Word/Excel/PowerPoint/OneNote + `disabletraining` + `disablecontentsafety` + `CopilotPinning`
-4. **RegionPolicy**: تصفير كل سياسات Copilot/Recall في `IntegratedServicesRegionPolicySet.json`
-5. **BlockReinstall**: سياسات `RemoveDefaultMicrosoftStorePackages` لمنع عودة الحزم
-6. **RemoveAppx**: ‏`AIX, CoPilot, Ai.Copilot.Provider, Copilot, OfficeHub, CoreAI, GameAssist, ActionsServer, WritingAssistant, Clipchamp, AIFabric, Handwriting, WindowsWorkload.*, WinML, Voiess/Speion/Livtop/Filons` — إزالة عادية ثم تمريرة TrustedInstaller واحدة (EOL + Deprovisioned + Inbox + NonRemovable)
-7. **RemoveRecall**: تعطيل `Disable-WindowsOptionalFeature Recall -Remove` + DISM
-8. **RemoveCBS**: كلمات `AIX/Recall/Copilot/CoreAI/AIFabric/PhiSilica/WindowsWorkload/Onnx/WinML/ImageSearch` — إظهار (`Visibility=1`) ثم `Remove-WindowsPackage` ثم تنظيف `servicing\Packages`
-9. **RemoveFiles**: مجلدات `WindowsAI` + بقايا `WindowsApps` + إخفاء صفحة `AI Components` + تعطيل `Rewrite` في Notepad
-10. **KillTasks**: مهام `WindowsAI/Recall/Copilot/ClickToDo/AIFabric` + مفاتيح `TaskCache`
-11. **Watchdog**: مهمة `aicancel-watchdog` تعيد التطبيق بعد التحديثات
-12. **NoDefenderAI**: ‏`Set-MpPreference -DisableAIAgent` + حيلة IFEO
+---
 
-## التشغيل
+## What is aicancel?
+
+**aicancel** removes and disables the built-in AI layer of Windows: Copilot, Recall, Click to Do, AI Fabric, Edge AI, Office AI, Defender AI agents and the background services that support them.
+
+It is built for three things:
+
+- **Fast** — one registry batch, one CBS scan, one TrustedInstaller pass. No dead waits.
+- **Complete** — 12 modules covering registry, policies, packages, files, tasks and reinstall guards.
+- **Safe** — scan-before-you-remove preview, automatic restore point, backup mode and full revert.
+
+## What it removes
+
+| # | Module | What it does |
+|---|--------|--------------|
+| 1 | `DisableReg` | Disables all `WindowsAI` / `WindowsCopilot` policies, AI consent stores (`generativeAI`, `systemAIModels`), background access, voice activation, telemetry, taskbar Copilot button, Click to Do |
+| 2 | `EdgeAI` | Applies 17 Edge AI policies and disables Copilot Mode flags in `Local State` |
+| 3 | `OfficeAI` | Disables Copilot in Word / Excel / PowerPoint / OneNote, AI training and content-safety endpoints |
+| 4 | `RegionPolicy` | Sets every Copilot / Recall rule in `IntegratedServicesRegionPolicySet.json` to disabled |
+| 5 | `BlockReinstall` | Registers Appx removal policies so AI packages are not silently reinstalled |
+| 6 | `RemoveAppx` | Removes AI Appx packages (AIX, CoPilot, Copilot Provider, OfficeHub, CoreAI, GameAssist, ActionsServer, WritingAssistant, AIFabric, WindowsWorkload, WinML…) including locked ones |
+| 7 | `RemoveRecall` | Disables and strips the Recall optional feature (DISM) |
+| 8 | `RemoveCBS` | Reveals and removes hidden AI servicing (CBS) packages in a single scan |
+| 9 | `RemoveFiles` | Cleans leftover AI folders/files, hides the AI Components settings page, disables Notepad Rewrite |
+| 10 | `KillTasks` | Deletes Windows AI scheduled tasks and their TaskCache entries |
+| 11 | `Watchdog` | Installs `aicancel-watchdog` so updates cannot silently bring AI back |
+| 12 | `NoDefenderAI` | Disables the Defender AI agent |
+
+## Quick start
 
 ```bat
-:: نقرة مزدوجة (قائمة عربية)
+REM Interactive menu (recommended)
 aicancel.bat
 
-:: إزالة شاملة صامتة مع نسخة احتياطية
+REM Full silent removal with backup
 aicancel.bat -all
 
-:: فحص فقط بدون حذف
+REM Preview only — nothing is removed
 aicancel.bat -scan
 
-:: استرجاع
+REM Revert everything
 aicancel.bat -revert
 ```
 
-أو PowerShell مباشرة:
+Direct PowerShell:
 
 ```powershell
-# تفاعلي
-powershell -NoProfile -ExecutionPolicy Bypass -File aicancel.ps1
+# Interactive menu
+powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1
 
-# شامل صامت
+# Full silent run with backup + logging
 powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -NonInteractive -All -Backup -EnableLog
 
-# خيارات محددة (متوافق مع أسماء الأصلي أيضا)
+# Selected modules only
 powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -NonInteractive -Options DisableReg,RemoveAppx,RemoveCBS
 
-# استثناء
+# Everything except one module
 powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -NonInteractive -All -Exclude -Options NoDefenderAI
 
-# فحص
+# Scan only
 powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -ScanOnly -NonInteractive -All
 
-# استرجاع
+# Revert
 powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -NonInteractive -All -Revert
 ```
 
-## تحذيرات
+One-liner (admin PowerShell):
 
-- شغّله كمسؤول، وأكمل تحديثات ويندوز المعلقة أولا (يفحص تلقائيا ويرفض المتابعة إن وُجد تحديث معلق).
-- نسخة Home لا تطبق كل سياسات GroupPolicy مثل Pro/Enterprise — هذا قيد من ويندوز نفسه.
-- بعض مضادات الفيروسات قد تعطي False Positive (طبيعي لأي أداة Debloat) — جرّب في VM أولا إن قلقت.
-- استخدم `-Backup` دائما قبل الإزالة الشاملة.
+```powershell
+& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/salim-studio/aicancel/main/aicancel.ps1')))
+```
 
-## الملفات
+## Safety first
 
-- `aicancel.ps1` — السكربت الرئيسي
-- `aicancel.bat` — مشغّل بصلاحيات مسؤول
-- `README.md` — هذا الملف
+- Run as **administrator**. The launcher requests elevation automatically.
+- Finish pending Windows updates first — aicancel refuses to run while an update is installing or a reboot is pending.
+- Use `-Backup` for full runs: a restore point is created automatically.
+- Test in a virtual machine first if you are unsure.
+- Some antiviruses flag debloat tools as suspicious (false positive). This script is plain-text PowerShell — read it before running.
 
-MIT — مبني بفكرة مستوحاة من zoicware/RemoveWindowsAI مع إعادة كتابة كاملة وتحسينات سرعة وتوافق.
+## Requirements
+
+- Windows 10 / 11 (Pro, Enterprise, Education or Server recommended — Home editions ignore some Group Policy keys by design).
+- Windows PowerShell 5.1 **or** PowerShell 7+.
+
+## Files
+
+- `aicancel.ps1` — main script
+- `aicancel.bat` — administrator launcher
+- `assets/logo.svg` — project logo
+- `LICENSE` — MIT license
+
+## License
+
+Copyright (c) 2026 salim-slimani. Released under the [MIT License](LICENSE).

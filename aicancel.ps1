@@ -1,18 +1,24 @@
 <#
 .SYNOPSIS
-  aicancel v1.0 - مزيل ذكاء ويندوز الاصطناعي (Copilot/Recall/ClickToDo/AIFabric/DefenderAI...)
-  بديل عملي وسريع ومتكامل لمشروع RemoveWindowsAI.
+  aicancel v1.1.0 — Cancel Windows AI. Reclaim a clean, private, AI-free Windows.
+  Removes and disables Copilot, Recall, Click to Do, AI Fabric, Edge AI,
+  Office AI, Defender AI agents and related background services.
 .DESCRIPTION
-  - يعمل على PowerShell 5.1 و PowerShell 7+ (الأصلي كان يمنع 7)
-  - أسرع: دفعة واحدة للريجستري، مسح واحد لـ CBS، إزالة Appx متوازية، بدون sleep زائد
-  - متكامل: Registry + Policies + RegionPolicies + Appx + RecallFeature + CBS + Files + Tasks + Edge + Office + Voice + Photos + Notepad + DefenderAI + Watchdog
-  - آمن: نقطة استعادة + نسخ احتياطي Backup + وضع Revert + وضع ScanOnly (فحص فقط)
+  Fast, complete and safe:
+  - Works on Windows PowerShell 5.1 and PowerShell 7+
+  - Single-pass registry batch, single CBS scan, single TrustedInstaller pass
+  - Scan-only preview (-ScanOnly), backup (-Backup), full revert (-Revert)
+  - Update watchdog keeps AI components from silently returning
+  - Optional transcript logging (-EnableLog)
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File aicancel.ps1
   powershell -NoProfile -ExecutionPolicy Bypass -File aicancel.ps1 -NonInteractive -All
   powershell -NoProfile -ExecutionPolicy Bypass -File aicancel.ps1 -NonInteractive -Options DisableReg,RemoveAppx,RemoveCBS -Backup
   powershell -NoProfile -ExecutionPolicy Bypass -File aicancel.ps1 -NonInteractive -All -Revert
   powershell -NoProfile -ExecutionPolicy Bypass -File aicancel.ps1 -ScanOnly
+.NOTES
+  Copyright (c) 2026 salim-slimani. All rights reserved. Licensed under the MIT License.
+  Project: https://github.com/salim-studio/aicancel
 #>
 [CmdletBinding()]
 param(
@@ -33,7 +39,7 @@ $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = 'SilentlyContinue'
 
 # ---------- helpers ----------
-$Global:AICancelVer = '1.0.0'
+$Global:AICancelVer = '1.1.0'
 $Global:Root = "$env:USERPROFILE\aicancel"
 $Global:BackupDir = "$Root\Backup"
 $Global:LogFile = "$Root\aicancel-$(Get-Date -Format 'yyyyMMdd-HHmm').log"
@@ -60,7 +66,7 @@ function Err([string]$m){ Log "x $m" 'Red' }
 function Ensure-Admin {
   $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')
   if (-not $isAdmin) {
-    Warn 'إعادة التشغيل كمسؤول...'
+    Warn 'Restarting as administrator...'
     $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File', "`"$PSCommandPath`"") + $MyInvocation.BoundParameters.GetEnumerator().ForEach({
       if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
       elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
@@ -83,7 +89,7 @@ function Test-PendingUpdate {
 }
 
 # ---------- fast reg batch ----------
-# each entry: Hive, Key, Name, Type, Data
+# One entry per registry value: Hive, Key, Name, Type, Data
 function Invoke-RegBatch([array]$list) {
   foreach ($r in $list) {
     if ($ScanOnly) { Log "REG $($r.Hive)\$($r.Key) [$($r.Name)=$($r.Data)]" 'Gray'; continue }
@@ -184,10 +190,10 @@ function Invoke-Trusted([string]$command) {
 }
 
 # ============================================================
-# 1) DisableReg — كل مفاتيح AI دفعة واحدة (أسرع من الأصلي)
+# 1) DisableReg — all AI registry keys in a single fast batch
 # ============================================================
 function Do-DisableReg {
-  Log 'تعطيل مفاتيح Copilot / Recall / AI...'
+  Log 'Disabling Copilot / Recall / AI registry keys...'
   $R = $Global:IsRevert
   $on  = @{1='1';0='0'} # helper
   $D1 = if (-not $R) {'1'} else {'0'}  # Disable*=1
@@ -271,14 +277,14 @@ function Do-DisableReg {
       foreach ($k in $rk) { Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunNotification' -Name $k -Force -EA SilentlyContinue }
     } catch {}
   }
-  Ok 'انتهى تعطيل الريجستري.'
+  Ok 'Registry lockdown done.'
 }
 
 # ============================================================
 # 2) EdgeAI
 # ============================================================
 function Do-EdgeAI {
-  Log 'تعطيل AI في Edge...'
+  Log 'Disabling AI in Edge...'
   $R = $Global:IsRevert
   $D1 = if (-not $R) {'1'} else {'0'}
   $D0 = if (-not $R) {'0'} else {'1'}
@@ -310,17 +316,17 @@ function Do-EdgeAI {
         if ($R) { $j.browser.enabled_labs_experiments = @($j.browser.enabled_labs_experiments | Where-Object { $_ -notin $flags }) }
         else { foreach ($f in $flags) { if ($j.browser.enabled_labs_experiments -notcontains $f) { $j.browser.enabled_labs_experiments += $f } } }
         ($j | ConvertTo-Json -Compress -Depth 12).Replace('"_empty"','""') | Set-Content $ls -Encoding UTF8 -Force
-      } catch { Warn 'تعذر تعديل Edge Local State (لغة مختلفة أو لم يُفتح Edge بعد). عطّل flags يدويا من edge://flags' }
+      } catch { Warn 'Could not patch Edge Local State. Disable Copilot flags manually at edge://flags' }
     }
   }
-  Ok 'انتهى Edge.'
+  Ok 'Edge done.'
 }
 
 # ============================================================
 # 3) OfficeAI
 # ============================================================
 function Do-OfficeAI {
-  Log 'تعطيل Copilot في Office...'
+  Log 'Disabling Copilot in Office...'
   $R = $Global:IsRevert
   $D1 = if (-not $R) {'1'} else {'0'}
   $D0 = if (-not $R) {'0'} else {'1'}
@@ -337,16 +343,16 @@ function Do-OfficeAI {
     @{Hive='HKLM';Key='SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\general';Name='disablecontentsafety';Type='REG_DWORD';Data=$D1},
     @{Hive='HKCU';Key='Software\Policies\Microsoft\Cloud\Office\16.0\common\copilot';Name='CopilotPinning';Type='REG_DWORD';Data=$D0}
   )
-  Ok 'انتهى Office.'
+  Ok 'Office done.'
 }
 
 # ============================================================
 # 4) RegionPolicy (IntegratedServicesRegionPolicySet.json)
 # ============================================================
 function Do-RegionPolicy {
-  Log 'تعطيل Copilot في RegionPolicy...'
+  Log 'Patching regional AI policies...'
   $p = "$env:SystemRoot\System32\IntegratedServicesRegionPolicySet.json"
-  if (-not (Test-Path $p)) { Warn 'ملف RegionPolicy غير موجود — تخطي.'; return }
+  if (-not (Test-Path $p)) { Warn 'RegionPolicy file not found — skipping.'; return }
   if ($ScanOnly) { Log "SCAN $p" 'Gray'; return }
   try {
     if ($Global:DoBackup) { Copy-Item $p "$BackupDir\IntegratedServicesRegionPolicySet.bak" -Force }
@@ -359,31 +365,31 @@ function Do-RegionPolicy {
       }
     }
     $j | ConvertTo-Json -Depth 20 | Set-Content $p -Encoding UTF8 -Force
-    Ok "حدّثنا $n سياسة إقليمية."
-  } catch { Err "فشل RegionPolicy: $($_.Exception.Message)" }
+    Ok "Patched $n regional policies."
+  } catch { Err "RegionPolicy patch failed: $($_.Exception.Message)" }
 }
 
 # ============================================================
-# 5) BlockReinstall — منع إعادة التثبيت عبر Update package وهمي + سياسات Appx
+# 5) BlockReinstall — block AI package reinstall via Appx policies
 # ============================================================
 function Do-BlockReinstall {
-  Log 'منع إعادة تثبيت حزم AI...'
+  Log 'Blocking AI package reinstall...'
   if ($ScanOnly) { Log 'SCAN BlockReinstall' 'Gray'; return }
   if ($Global:IsRevert) {
     & reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages' /f *>$null
-    Ok 'أُزيل منع إعادة التثبيت (revert).'; return
+    Ok 'Reinstall block removed (revert).'; return
   }
   Invoke-RegBatch @(
     @{Hive='HKLM';Key='SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.Copilot_8wekyb3d8bbwe';Name='';Type='REG';Data=''},
     @{Hive='HKLM';Key='SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe';Name='';Type='REG';Data=''}
   )
-  # DynamicRemovalList فارغ يمنع التثبيت التلقائي
+  # An empty DynamicRemovalList blocks automatic reinstall
   & reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages' /v DynamicRemovalList /t REG_SZ /d '' /f *>$null
-  Ok 'تم تفعيل منع إعادة التثبيت.'
+  Ok 'Reinstall block enabled.'
 }
 
 # ============================================================
-# 6) RemoveAppx — إزالة حزم Appx (أسرع: تمريرة واحدة + TrustedInstaller واحدة)
+# 6) RemoveAppx — remove AI Appx packages (normal pass + one TrustedInstaller pass)
 # ============================================================
 function Get-AIPackagePatterns {
   return @(
@@ -396,7 +402,7 @@ function Get-AIPackagePatterns {
   )
 }
 function Do-RemoveAppx {
-  Log 'إزالة حزم Appx للذكاء الاصطناعي...'
+  Log 'Removing AI Appx packages...'
   $pats = Get-AIPackagePatterns
   if ($ScanOnly) {
     try {
@@ -409,9 +415,9 @@ function Do-RemoveAppx {
     } catch {}
     return
   }
-  if ($Global:IsRevert) { Warn 'استرجاع Appx يتطلب المتجر — أعد تثبيتها يدويا من Store. (نقطة الاستعادة تغطي النظام)'; return }
+  if ($Global:IsRevert) { Warn 'Appx revert requires the Microsoft Store — reinstall apps manually if needed. (The restore point covers system state)'; return }
 
-  # 1) إزالة عادية سريعة للمستخدم الحالي + كل المستخدمين (بدون Trusted — تنجح لـ 70%)
+  # 1) Fast normal pass for current and all users (covers most packages)
   try {
     $all = Get-AppxPackage -AllUsers -EA SilentlyContinue
     foreach ($rx in $pats) {
@@ -427,7 +433,7 @@ function Do-RemoveAppx {
     }
   } catch {}
 
-  # 2) تمريرة TrustedInstaller واحدة للعنيد (EOL + Deprovisioned + Inbox + NonRemovable)
+  # 2) One TrustedInstaller pass for locked packages (EOL + Deprovisioned + Inbox + NonRemovable)
   $patStr = ($pats -join ',')
   $inner = @'
 param([string]$P)
@@ -455,29 +461,29 @@ foreach($r in $rx){
   $inner | Out-File $tmp -Encoding utf8 -Force
   Invoke-Trusted "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$tmp`" -P '$patStr'"
   try { Remove-Item $tmp -Force -EA SilentlyContinue } catch {}
-  Ok 'انتهت إزالة Appx.'
+  Ok 'Appx removal done.'
 }
 
 # ============================================================
 # 7) RemoveRecall (Optional Feature)
 # ============================================================
 function Do-RemoveRecall {
-  Log 'إزالة ميزة Recall...'
+  Log 'Removing the Recall feature...'
   if ($ScanOnly) { Log 'SCAN Recall feature' 'Gray'; return }
-  if ($Global:IsRevert) { Warn 'استرجاع Recall: فعّلها من Optional Features يدويا إن أردت.'; return }
+  if ($Global:IsRevert) { Warn 'Recall revert: re-enable it manually from Optional Features if you want it back.'; return }
   try { Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -EA SilentlyContinue | Out-Null } catch {}
   try { & dism.exe /Online /Disable-Feature /FeatureName:Recall /Remove /NoRestart /Quiet *>$null } catch {}
-  Ok 'انتهت معالجة Recall.'
+  Ok 'Recall handled.'
 }
 
 # ============================================================
-# 8) RemoveCBS — مسح واحد فقط (الأصلي كان بطيئا)
+# 8) RemoveCBS — reveal and remove hidden AI CBS packages in a single scan
 # ============================================================
 function Do-RemoveCBS {
-  Log 'إزالة حزم CBS المخفية (AIX/Recall/Copilot/CoreAI)...'
+  Log 'Removing hidden AI CBS packages...'
   $kw = @('*AIX*','*Recall*','*Copilot*','*CoreAI*','*AIFabric*','*PhiSilica*','*WindowsWorkload*','*OnnxRuntime*','*WinML*','*ImageSearch*')
   $reg = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
-  if (-not (Test-Path $reg)) { Warn 'لا يوجد CBS.'; return }
+  if (-not (Test-Path $reg)) { Warn 'No CBS store found.'; return }
   $found = @()
   foreach ($k in (Get-ChildItem $reg -EA SilentlyContinue)) {
     $name = $k.PSChildName
@@ -502,18 +508,18 @@ function Do-RemoveCBS {
       }
     } catch {}
   }
-  if ($ScanOnly) { Log "مجموع CBS المرشحة: $($found.Count)" 'Yellow' }
-  else { Ok "عالجنا $($found.Count) حزمة CBS." }
+  if ($ScanOnly) { Log "CBS candidates found: $($found.Count)" 'Yellow' }
+  else { Ok "Processed $($found.Count) CBS packages." }
 }
 
 # ============================================================
-# 9) RemoveFiles — ملفات ومجلدات AI + مفاتيح Notepad/Photos/Snipping
+# 9) RemoveFiles — leftover AI folders/files plus app policies (Notepad/Photos/Snipping)
 # ============================================================
 function Do-RemoveFiles {
-  Log 'تنظيف ملفات AI المتبقية...'
+  Log 'Cleaning leftover AI files...'
   if ($Global:IsRevert) {
     & reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Notepad' /v DisableRewrite /f *>$null
-    Ok 'أُعيد Rewrite (revert).'; return
+    Ok 'Notepad Rewrite restored (revert).'; return
   }
   if ($ScanOnly) { Log 'SCAN files' 'Gray' }
   else {
@@ -532,32 +538,32 @@ function Do-RemoveFiles {
         }
       } catch {}
     }
-    # ML dlls الشائعة (لا نحذف system32 كاملا — فقط AI)
+    # Known AI-related DLLs only (never blanket system32 deletes)
     foreach ($f in (Get-ChildItem "$env:SystemRoot\System32" -Filter "*ai*copilot*" -EA SilentlyContinue)) {
       try { Remove-Item $f.FullName -Force -EA SilentlyContinue } catch {}
     }
   }
-  # سياسات التطبيقات (تعمل حتى في Scan للعرض)
+  # App policies (also shown in scan mode)
   $batch = @(
     @{Hive='HKLM';Key='SOFTWARE\Policies\Microsoft\Windows\Notepad';Name='DisableRewrite';Type='REG_DWORD';Data=$(if(-not $Global:IsRevert){'1'}else{'0'})},
     @{Hive='HKCU';Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy';Name='TailoredExperiencesWithDiagnosticDataEnabled';Type='REG_DWORD';Data=$(if(-not $Global:IsRevert){'0'}else{'1'})}
   )
   Invoke-RegBatch $batch
-  # إخفاء صفحة AI Components في الإعدادات
+  # Hide the AI Components settings page
   $hide = if (-not $Global:IsRevert) { 'hide:ai-components' } else { '' }
   if ($ScanOnly) { Log "Settings PageVisibility=$hide" 'Gray' }
   else {
     if ($hide) { & reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v SettingsPageVisibility /t REG_SZ /d $hide /f *>$null }
     else { & reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v SettingsPageVisibility /f *>$null }
   }
-  Ok 'انتهى تنظيف الملفات.'
+  Ok 'File cleanup done.'
 }
 
 # ============================================================
-# 10) KillTasks — مهام WindowsAI المجدولة
+# 10) KillTasks — Windows AI scheduled tasks
 # ============================================================
 function Do-KillTasks {
-  Log 'إزالة مهام Windows AI المجدولة...'
+  Log 'Removing Windows AI scheduled tasks...'
   $names = @('*WindowsAI*','*Recall*','*Copilot*','*ClickToDo*','*AIFabric*')
   if ($ScanOnly) {
     try {
@@ -565,7 +571,7 @@ function Do-KillTasks {
     } catch {}
     return
   }
-  if ($Global:IsRevert) { Warn 'المهام المحذوفة لا تُسترجع تلقائيا — استخدم نقطة الاستعادة.'; return }
+  if ($Global:IsRevert) { Warn 'Deleted tasks cannot auto-restore — use the restore point.'; return }
   foreach ($n in $names) {
     try {
       Get-ScheduledTask -TaskName $n -EA SilentlyContinue | ForEach-Object {
@@ -573,22 +579,22 @@ function Do-KillTasks {
       }
     } catch {}
   }
-  # ملفات المهام العنيدة عبر Trusted
+  # Stubborn task files via TrustedInstaller
   Invoke-Trusted "Get-ChildItem '$env:SystemRoot\System32\Tasks\Microsoft\Windows\WindowsAI' -Recurse -EA SilentlyContinue | Remove-Item -Force -Recurse -EA SilentlyContinue; Remove-Item 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI' -Recurse -Force -EA SilentlyContinue"
-  Ok 'انتهت المهام.'
+  Ok 'Scheduled tasks done.'
 }
 
 # ============================================================
-# 11) Watchdog — مهمة حماية تمنع عودة AI بعد التحديث
+# 11) Watchdog — scheduled guard that stops AI returning with updates
 # ============================================================
 function Do-Watchdog {
   $tn = 'aicancel-watchdog'
   if ($Global:IsRevert -or $ScanOnly) {
     if ($ScanOnly) { Log "SCAN watchdog task $tn" 'Gray'; return }
-    try { Unregister-ScheduledTask -TaskName $tn -Confirm:$false -EA SilentlyContinue; Ok 'حُذفت مهمة الحماية.' } catch {}
+    try { Unregister-ScheduledTask -TaskName $tn -Confirm:$false -EA SilentlyContinue; Ok 'Watchdog removed.' } catch {}
     return
   }
-  Log 'تثبيت مهمة الحماية من عودة AI بعد التحديث...'
+  Log 'Installing the update watchdog...'
   $script = "`"$PSCommandPath`" -NonInteractive -Options DisableReg,RemoveAppx,KillTasks,EdgeAI -NoReboot"
   $act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File $script"
   $trg = New-ScheduledTaskTrigger -AtLogOn
@@ -597,25 +603,25 @@ function Do-Watchdog {
   $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
   try {
     Register-ScheduledTask -TaskName $tn -Action $act -Trigger @($trg,$trg2) -Principal $pri -Settings $set -Description 'aicancel: re-apply AI removal after updates' -Force | Out-Null
-    Ok 'ثُبّتت الحماية.'
-  } catch { Err 'فشل تثبيت الحماية.' }
+    Ok 'Watchdog installed.'
+  } catch { Err 'Watchdog install failed.' }
 }
 
 # ============================================================
-# 12) NoDefenderAI — تعطيل Defender AI Agent
+# 12) NoDefenderAI — Defender AI agent
 # ============================================================
 function Do-NoDefenderAI {
-  Log 'تعطيل Defender AI...'
+  Log 'Disabling Defender AI...'
   if ($ScanOnly) { Log 'SCAN Defender AI' 'Gray'; return }
   if ($Global:IsRevert) {
     & reg.exe delete 'HKLM\SOFTWARE\Image File Execution Options\AIDefenderHost.exe' /v Debugger /f *>$null
     try { Set-MpPreference -DisableAIAgent $false -EA SilentlyContinue } catch {}
-    Ok 'أُعيد Defender AI.'; return
+    Ok 'Defender AI restored.'; return
   }
   try { Set-MpPreference -DisableAIAgent $true -EA SilentlyContinue } catch {}
   try { Set-MpPreference -DisableAiProtection $true -EA SilentlyContinue } catch {}
   & reg.exe add 'HKLM\SOFTWARE\Image File Execution Options\AIDefenderHost.exe' /v Debugger /t REG_SZ /d 'systray.exe' /f *>$null
-  Ok 'انتهى Defender AI.'
+  Ok 'Defender AI done.'
 }
 
 # ============================================================
@@ -624,51 +630,43 @@ function Do-NoDefenderAI {
 function New-RestorePoint {
   if ($ScanOnly -or $Global:IsRevert -or $NoReboot) { return }
   try {
-    Write-Host 'إنشاء نقطة استعادة...' -ForegroundColor Yellow
+    Write-Host 'Creating a restore point...' -ForegroundColor Yellow
     try { Enable-ComputerRestore -Drive "$env:SystemDrive\" -EA SilentlyContinue } catch {}
     try {
       $p='HKLM:\Software\Microsoft\Windows NT\CurrentVersion\SystemRestore'
       Set-ItemProperty $p -Name SystemRestorePointCreationFrequency -Value 0 -Force -EA SilentlyContinue
     } catch {}
     Checkpoint-Computer -Description "aicancel-$(Get-Date -Format 'yyyy-MM-dd')" -RestorePointType MODIFY_SETTINGS -EA SilentlyContinue
-    Ok 'نقطة الاستعادة جاهزة.'
-  } catch { Warn 'تعذر إنشاء نقطة استعادة — أكمل بحذر.' }
+    Ok 'Restore point ready.'
+  } catch { Warn 'Could not create a restore point — proceeding with caution.' }
 }
 
 function Resolve-Selection([string[]]$opts, [switch]$all, [switch]$exclude) {
   $keys = @('DisableReg','BlockReinstall','RegionPolicy','RemoveAppx','RemoveRecall','RemoveCBS','RemoveFiles','HideAISettings','NoRewrite','KillTasks','Watchdog','NoDefenderAI','EdgeAI','OfficeAI')
-  # أسماء مختصرة متوافقة مع الأصلي
-  $alias = @{
-    DisableRegKeys='DisableReg'; PreventAIPackageReinstall='BlockReinstall'; DisableCopilotPolicies='RegionPolicy';
-    RemoveAppxPackages='RemoveAppx'; RemoveRecallFeature='RemoveRecall'; RemoveCBSPackages='RemoveCBS';
-    RemoveAIFiles='RemoveFiles'; HideAIComponents='HideAISettings'; DisableRewrite='NoRewrite';
-    RemoveWindowsAITasks='KillTasks'; UpdateCleanupCheck='Watchdog'; DisableDefenderAI='NoDefenderAI'
-  }
-  $norm = @()
-  foreach ($o in $opts) { if ($alias.ContainsKey($o)) { $norm += $alias[$o] } else { $norm += $o } }
-  # HideAISettings/NoRewrite مدمجة داخل RemoveFiles لكن نبقيها كمفاتيح مستقلة للتوافق
+  # HideAISettings/NoRewrite are applied as part of RemoveFiles
   if ($all) { return $keys }
-  if ($exclude) { return ($keys | Where-Object { $norm -notcontains $_ }) }
-  if ($norm.Count -eq 0) { return @() }
-  return ($keys | Where-Object { $norm -contains $_ })
+  if ($exclude) { return ($keys | Where-Object { $opts -notcontains $_ }) }
+  if ($opts.Count -eq 0) { return @() }
+  return ($keys | Where-Object { $opts -contains $_ })
 }
 
 function Show-Menu {
   Clear-Host
-  Write-Host '==============================================' -ForegroundColor Cyan
-  Write-Host '  aicancel v1.0 — إلغاء ذكاء ويندوز الاصطناعي' -ForegroundColor Cyan
-  Write-Host '  أسرع + أشمل + يدعم PS 5.1 و 7' -ForegroundColor Gray
-  Write-Host '=============================================='
-  Write-Host ' 1) إزالة شاملة (موصى به)'
-  Write-Host ' 2) فحص فقط (ScanOnly) — اعرض ما سيُزال'
-  Write-Host ' 3) تعطيل الريجستري والسياسات فقط'
-  Write-Host ' 4) إزالة Appx فقط'
-  Write-Host ' 5) إزالة CBS + Recall فقط'
-  Write-Host ' 6) تثبيت الحماية من التحديثات فقط'
-  Write-Host ' 7) استرجاع (Revert)'
-  Write-Host ' 0) خروج'
-  Write-Host '=============================================='
-  $c = Read-Host 'اختر رقم'
+  Write-Host '  ============================================  ' -ForegroundColor Cyan
+  Write-Host '   a i c a n c e l   v1.1.0                    ' -ForegroundColor Cyan
+  Write-Host '   Cancel Windows AI — clean. private. yours. ' -ForegroundColor Gray
+  Write-Host '   (c) 2026 salim-slimani · MIT                ' -ForegroundColor DarkGray
+  Write-Host '  ============================================  '
+  Write-Host '   1) Full removal (recommended)'
+  Write-Host '   2) Scan only — preview what would be removed'
+  Write-Host '   3) Registry and policies only'
+  Write-Host '   4) Appx packages only'
+  Write-Host '   5) CBS + Recall only'
+  Write-Host '   6) Update watchdog only'
+  Write-Host '   7) Revert all changes'
+  Write-Host '   0) Exit'
+  Write-Host '  ============================================  '
+  $c = Read-Host 'Pick a number'
   switch ($c) {
     '1' { return @('__ALL__') }
     '2' { return @('__SCAN__') }
@@ -686,8 +684,10 @@ Ensure-Admin
 Fix-Path
 if ($EnableLog -and -not (Test-Path $Global:Root)) { New-Item $Global:Root -ItemType Directory -Force | Out-Null }
 
-Write-Host "~ ~ ~ aicancel v$AICancelVer ~ ~ ~" -ForegroundColor DarkCyan
-if ($PSVersionTable.PSVersion.Major -ge 7) { Log "PowerShell $($PSVersionTable.PSVersion) — مدعوم في aicancel (تحسين عن الأصلي)." 'Green' }
+Write-Host ''
+Write-Host "   a i c a n c e l  v$AICancelVer  —  Cancel Windows AI" -ForegroundColor Cyan
+Write-Host '   (c) 2026 salim-slimani - MIT License' -ForegroundColor DarkGray
+if ($PSVersionTable.PSVersion.Major -ge 7) { Log "PowerShell $($PSVersionTable.PSVersion) detected — fully supported." 'Green' }
 
 if (-not $NonInteractive -and -not $ScanOnly) {
   $m = Show-Menu
@@ -695,20 +695,20 @@ if (-not $NonInteractive -and -not $ScanOnly) {
   elseif ($m -contains '__SCAN__') { $ScanOnly = $true; $All = $true }
   elseif ($m -contains '__REVERT__') { $Global:IsRevert = $true; $All = $true }
   elseif ($m.Count -gt 0) { $Options = $m }
-  else { Write-Host 'إلغاء.'; exit }
+  else { Write-Host 'Cancelled.'; exit }
 }
 
 $sel = Resolve-Selection -opts $Options -all:$All -exclude:$Exclude
-# HideAISettings و NoRewrite جزء من RemoveFiles
+# HideAISettings and NoRewrite are handled inside RemoveFiles
 if ($sel -contains 'HideAISettings' -or $sel -contains 'NoRewrite') {
   if ($sel -notcontains 'RemoveFiles') { $sel += 'RemoveFiles' }
 }
-if ($sel.Count -eq 0 -and -not $ScanOnly) { Err 'لا خيارات. استخدم -All أو -Options.'; exit 1 }
+if ($sel.Count -eq 0 -and -not $ScanOnly) { Err 'No options selected. Use -All or -Options.'; exit 1 }
 
 if (-not $ScanOnly -and -not $Global:IsRevert) {
   if (Test-PendingUpdate) {
-    Err 'يوجد تحديث ويندوز معلّق/يُثبّت الآن. أعد التشغيل وأكمل التحديث أولا ثم أعد تشغيل aicancel.'
-    if (-not $NonInteractive) { Read-Host 'اضغط Enter للخروج' | Out-Null }
+    Err 'A Windows update is pending or installing. Reboot, finish updates first, then re-run aicancel.'
+    if (-not $NonInteractive) { Read-Host 'Press Enter to exit' | Out-Null }
     exit 1
   }
   if ($Global:DoBackup -or $All) { New-RestorePoint }
@@ -736,12 +736,12 @@ foreach ($s in $sel) {
 $sw.Stop()
 
 Write-Host ''
-Write-Host "انتهى aicancel في $([math]::Round($sw.Elapsed.TotalSeconds,1)) ثانية." -ForegroundColor Green
-if ($ScanOnly) { Write-Host 'وضع فحص فقط — لم يُحذف شيء.' -ForegroundColor Yellow }
+Write-Host "aicancel finished in $([math]::Round($sw.Elapsed.TotalSeconds,1)) seconds." -ForegroundColor Green
+if ($ScanOnly) { Write-Host 'Scan-only mode — nothing was removed.' -ForegroundColor Yellow }
 elseif (-not $NoReboot -and -not $Global:IsRevert -and ($sel -contains 'RemoveCBS' -or $sel -contains 'RemoveAppx')) {
-  Write-Host 'يُوصى بإعادة التشغيل الآن لإتمام الإزالة.' -ForegroundColor Yellow
+  Write-Host 'A reboot is recommended to complete the removal.' -ForegroundColor Yellow
   if (-not $NonInteractive) {
-    $r = Read-Host 'إعادة تشغيل الآن؟ (y/N)'
+    $r = Read-Host 'Reboot now? (y/N)'
     if ($r -eq 'y' -or $r -eq 'Y') { Restart-Computer -Force }
   }
 }

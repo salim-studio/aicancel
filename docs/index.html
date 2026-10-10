@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>aicancel — Cancel Windows AI</title>
+<meta name="description" content="aicancel removes and disables the built-in AI layer of Windows: Copilot, Recall, Click to Do, AI Fabric, Edge AI, Office AI and Defender AI agents. Clean. Private. Yours." />
+<link rel="icon" type="image/svg+xml" href="/aicancel/assets/logo.svg" />
+<style>
+  :root{
+    --bg:#0B0F19; --panel:#131A2C; --line:#232D47;
+    --txt:#F1F5F9; --mut:#94A3B8;
+    --cyan:#22D3EE; --violet:#818CF8; --red:#F43F5E; --green:#34D399;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;line-height:1.6}
+  a{color:var(--cyan);text-decoration:none}
+  .wrap{max-width:1024px;margin:0 auto;padding:0 24px}
+  nav{border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,15,25,.92);backdrop-filter:blur(8px);z-index:10}
+  nav .wrap{display:flex;align-items:center;gap:12px;padding:14px 24px}
+  nav img{width:34px;height:34px}
+  nav .brand{font-weight:800;font-size:20px;letter-spacing:3px}
+  nav .brand span{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  nav .sp{flex:1}
+  .btn{display:inline-block;padding:12px 26px;border-radius:10px;font-weight:700;border:1px solid var(--line);color:var(--txt);transition:.15s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn.primary{background:linear-gradient(90deg,var(--cyan),var(--violet));color:#06121F;border:none}
+  .btn.ghost{background:transparent}
+  .hero{text-align:center;padding:72px 0 48px}
+  .hero img{width:128px;height:128px;filter:drop-shadow(0 8px 32px rgba(34,211,238,.25))}
+  .hero h1{font-size:56px;letter-spacing:10px;margin:18px 0 6px;font-weight:800}
+  .hero h1 span{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{color:var(--mut);font-size:19px}
+  .badges{margin:22px 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .badges img{height:24px}
+  .cta{margin-top:26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .term{background:#070B14;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:34px auto 0;max-width:760px;text-align:left;position:relative}
+  .term code{color:var(--green);font-family:Consolas,"Cascadia Code",monospace;font-size:14px;word-break:break-all}
+  .term button{position:absolute;top:12px;right:12px;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700}
+  .term button:hover{border-color:var(--cyan)}
+  section{padding:52px 0}
+  h2{font-size:28px;margin-bottom:6px}
+  h2 .bar{display:inline-block;width:34px;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--violet));margin-right:10px;vertical-align:middle}
+  .sub{color:var(--mut);margin-bottom:26px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .card b{color:var(--cyan)}
+  .card code{display:inline-block;margin-top:8px;background:#070B14;border:1px solid var(--line);border-radius:6px;padding:2px 10px;font-size:13px;color:var(--violet)}
+  pre{background:#070B14;border:1px solid var(--line);border-radius:12px;padding:20px;overflow-x:auto;font-size:14px;margin:14px 0}
+  pre code{font-family:Consolas,"Cascadia Code",monospace;color:#CBD5E1}
+  .warn{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.4);border-radius:12px;padding:18px 20px;margin-top:14px}
+  footer{border-top:1px solid var(--line);padding:28px 0;color:var(--mut);text-align:center;font-size:14px}
+  @media(max-width:640px){.hero h1{font-size:38px;letter-spacing:6px}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <img src="/aicancel/assets/logo.svg" alt="aicancel logo" />
+    <div class="brand"><span>aicancel</span></div>
+    <div class="sp"></div>
+    <a href="https://github.com/salim-studio/aicancel">GitHub</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <header class="hero">
+    <img src="/aicancel/assets/logo.svg" alt="aicancel logo — AI crossed out" />
+    <h1><span>aicancel</span></h1>
+    <p class="tag">Cancel Windows AI — clean. private. yours.</p>
+    <div class="badges">
+      <img src="https://img.shields.io/badge/version-1.1.0-blue" alt="version 1.1.0" />
+      <img src="https://img.shields.io/badge/platform-Windows_10_|_11-0078D4" alt="Windows 10 and 11" />
+      <img src="https://img.shields.io/badge/powershell-5.1_|_7+-5391FE" alt="PowerShell 5.1 and 7" />
+      <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license" />
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/salim-studio/aicancel">Get it on GitHub</a>
+      <a class="btn ghost" href="#quickstart">Quick start</a>
+    </div>
+    <div class="term">
+      <button onclick="copyCmd()">Copy</button>
+      <code id="cmd">&amp; ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/salim-studio/aicancel/main/aicancel.ps1')))</code>
+    </div>
+  </header>
+
+  <section id="quickstart">
+    <h2><span class="bar"></span>Quick start</h2>
+    <p class="sub">Run as administrator. Finish pending Windows updates first.</p>
+<pre><code>REM Interactive menu (recommended)
+aicancel.bat
+
+REM Full silent removal with backup
+aicancel.bat -all
+
+REM Preview only — nothing is removed
+aicancel.bat -scan
+
+REM Revert everything
+aicancel.bat -revert</code></pre>
+<pre><code># Full silent run with backup + logging
+powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -NonInteractive -All -Backup -EnableLog
+
+# Selected modules only
+powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -NonInteractive -Options DisableReg,RemoveAppx,RemoveCBS
+
+# Scan only
+powershell -NoProfile -ExecutionPolicy Bypass -File .\aicancel.ps1 -ScanOnly -NonInteractive -All</code></pre>
+  </section>
+
+  <section id="modules">
+    <h2><span class="bar"></span>What it removes</h2>
+    <p class="sub">12 modules. One registry batch, one CBS scan, one TrustedInstaller pass — no dead waits.</p>
+    <div class="grid">
+      <div class="card"><b>Registry lockdown</b><p>All WindowsAI / WindowsCopilot policies, AI consent stores, background access, voice activation, telemetry, taskbar button, Click to Do.</p><code>DisableReg</code></div>
+      <div class="card"><b>Edge AI</b><p>17 Edge AI policies plus Copilot Mode flags in Local State.</p><code>EdgeAI</code></div>
+      <div class="card"><b>Office AI</b><p>Copilot in Word / Excel / PowerPoint / OneNote, AI training and content-safety endpoints.</p><code>OfficeAI</code></div>
+      <div class="card"><b>Regional policies</b><p>Every Copilot / Recall rule in IntegratedServicesRegionPolicySet.json set to disabled.</p><code>RegionPolicy</code></div>
+      <div class="card"><b>Reinstall guard</b><p>Appx removal policies so AI packages are not silently reinstalled.</p><code>BlockReinstall</code></div>
+      <div class="card"><b>Appx packages</b><p>AIX, CoPilot, Copilot Provider, OfficeHub, CoreAI, GameAssist, AIFabric, WindowsWorkload, WinML — including locked ones.</p><code>RemoveAppx</code></div>
+      <div class="card"><b>Recall</b><p>Disables and strips the Recall optional feature via DISM.</p><code>RemoveRecall</code></div>
+      <div class="card"><b>CBS packages</b><p>Reveals and removes hidden AI servicing packages in a single scan.</p><code>RemoveCBS</code></div>
+      <div class="card"><b>Files</b><p>Leftover AI folders/files, hides the AI Components settings page, disables Notepad Rewrite.</p><code>RemoveFiles</code></div>
+      <div class="card"><b>Scheduled tasks</b><p>Deletes Windows AI tasks and their TaskCache entries.</p><code>KillTasks</code></div>
+      <div class="card"><b>Watchdog</b><p>Scheduled guard so updates cannot silently bring AI back.</p><code>Watchdog</code></div>
+      <div class="card"><b>Defender AI</b><p>Disables the Defender AI agent.</p><code>NoDefenderAI</code></div>
+    </div>
+  </section>
+
+  <section id="safety">
+    <h2><span class="bar"></span>Safety first</h2>
+    <p class="sub">Powerful tools deserve guardrails. aicancel ships with four.</p>
+    <div class="grid">
+      <div class="card"><b>Scan before you remove</b><p><code>-ScanOnly</code> previews everything that would change. Nothing is touched.</p></div>
+      <div class="card"><b>Restore point</b><p>Created automatically on full runs before anything changes.</p></div>
+      <div class="card"><b>Backup + revert</b><p><code>-Backup</code> saves policies; <code>-Revert</code> rolls the system back.</p></div>
+      <div class="card"><b>Update check</b><p>Refuses to run while a Windows update is installing or a reboot is pending.</p></div>
+    </div>
+    <div class="warn"><b>Note:</b> test in a virtual machine first if unsure. Some antiviruses flag debloat tools as suspicious (false positive) — the script is plain-text PowerShell, read it before running. Home editions ignore some Group Policy keys by Windows design; Pro / Enterprise / Education give full coverage.</div>
+  </section>
+</div>
+
+<footer>
+  Copyright (c) 2026 salim-slimani · Released under the MIT License ·
+  <a href="https://github.com/salim-studio/aicancel">github.com/salim-studio/aicancel</a>
+</footer>
+
+<script>
+function copyCmd(){
+  const t = document.getElementById('cmd').innerText;
+  navigator.clipboard.writeText(t).then(()=>{
+    const b = document.querySelector('.term button');
+    b.innerText = 'Copied!';
+    setTimeout(()=> b.innerText = 'Copy', 1500);
+  });
+}
+</script>
+</body>
+</html>

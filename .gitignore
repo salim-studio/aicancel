@@ -1,0 +1,5 @@
+# build outputs (released via GitHub Releases, not git)
+dist/
+build/
+__pycache__/
+*.spec

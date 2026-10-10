@@ -42,6 +42,13 @@ It is built for three things:
 | 11 | `Watchdog` | Installs `aicancel-watchdog` so updates cannot silently bring AI back |
 | 12 | `NoDefenderAI` | Disables the Defender AI agent |
 
+## Download
+
+- **Installer (recommended):** `aicancel-setup-1.1.0.exe` — wizard-free setup that installs to Program Files, creates Start Menu / Desktop shortcuts, registers Add/Remove Programs, and optionally runs the tool. Get it from [Releases](https://github.com/salim-studio/aicancel/releases).
+- **Portable:** `aicancel-portable-1.1.0.zip` — just the script, launcher and docs. No install needed.
+
+> The `.exe` is unsigned, so Windows SmartScreen may ask for confirmation on first run — this is normal for independent open-source releases. The installer is built from the `installer/` sources in this repo via PyInstaller; you can rebuild it yourself with `python installer/build.py`.
+
 ## Quick start
 
 ```bat
